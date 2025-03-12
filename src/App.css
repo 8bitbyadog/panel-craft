@@ -1,0 +1,327 @@
+.App {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+  font-family: 'Courier New', monospace;
+  background-color: #e8e8e8;
+  min-height: 100vh;
+}
+
+.App-header {
+  background-color: #EF5350;
+  padding: 10px 20px;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.title-input {
+  font-size: 18px;
+  padding: 5px 10px;
+  border: none;
+  background-color: rgba(255, 255, 255, 0.2);
+  color: white;
+  font-family: 'Courier New', monospace;
+  font-weight: bold;
+}
+
+.settings-panel {
+  background-color: #3D7DCA;
+  padding: 15px;
+  margin-bottom: 20px;
+  display: flex;
+  gap: 20px;
+  color: white;
+}
+
+.settings-panel label {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.settings-panel input {
+  padding: 8px;
+  margin-top: 5px;
+  font-family: 'Courier New', monospace;
+  border: 2px solid rgba(0,0,0,0.1);
+}
+
+.main-content {
+  display: grid;
+  grid-template-columns: 200px 1fr 250px;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+.panels-list {
+  background-color: white;
+  padding: 15px;
+  border: 2px solid #333;
+}
+
+.panels-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+.panel-item {
+  background-color: #f0f0f0;
+  border: 2px solid #ddd;
+  padding: 10px;
+  cursor: pointer;
+}
+
+.panel-item.active {
+  border-color: #FFDE00;
+  background-color: #FFFACD;
+}
+
+.panel-preview {
+  height: 80px;
+  background-color: #ddd;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 5px;
+}
+
+.background-preview {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.elements-count {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  background-color: rgba(0,0,0,0.5);
+  color: white;
+  padding: 2px 5px;
+  font-size: 10px;
+}
+
+.panel-title {
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.add-panel-btn {
+  background-color: #FFDE00;
+  border: none;
+  padding: 10px;
+  margin-top: 10px;
+  cursor: pointer;
+  font-family: 'Courier New', monospace;
+  font-weight: bold;
+}
+
+.editor-area {
+  background-color: #333;
+  min-height: 500px;
+  border: 2px solid #333;
+  position: relative;
+}
+
+.scene-canvas {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.canvas-controls {
+  background-color: #444;
+  padding: 10px;
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+}
+
+.canvas-controls button {
+  background-color: #FFDE00;
+  border: none;
+  padding: 5px 10px;
+  font-family: 'Courier New', monospace;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.canvas-controls button:disabled {
+  background-color: #ddd;
+  color: #999;
+  cursor: not-allowed;
+}
+
+.canvas-area {
+  background-color: #666;
+  flex-grow: 1;
+  position: relative;
+  overflow: hidden;
+  /* Create a checkerboard pattern for transparency */
+  background-image:
+    linear-gradient(45deg, #5e5e5e 25%, transparent 25%),
+    linear-gradient(-45deg, #5e5e5e 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #5e5e5e 75%),
+    linear-gradient(-45deg, transparent 75%, #5e5e5e 75%);
+  background-size: 20px 20px;
+  background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+}
+
+.draggable-element {
+  position: absolute;
+  cursor: move;
+  user-select: none;
+}
+
+.draggable-element.selected {
+  outline: 2px dashed #FFDE00;
+}
+
+.element-content {
+  width: 100%;
+  height: 100%;
+}
+
+.no-panel-selected {
+  display: flex;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  color: #aaa;
+}
+
+.sidebar {
+  background-color: white;
+  border: 2px solid #333;
+  display: flex;
+  flex-direction: column;
+}
+
+.tabs {
+  display: flex;
+  border-bottom: 2px solid #ddd;
+}
+
+.tabs button {
+  flex: 1;
+  background-color: #f0f0f0;
+  border: none;
+  padding: 10px;
+  cursor: pointer;
+  font-family: 'Courier New', monospace;
+}
+
+.tabs button.active {
+  background-color: #FFDE00;
+  font-weight: bold;
+}
+
+.element-library, .script-generator {
+  padding: 15px;
+  overflow-y: auto;
+  max-height: 500px;
+}
+
+.element-generator, .generator-form {
+  background-color: #f0f0f0;
+  padding: 10px;
+  margin-bottom: 15px;
+  border: 1px solid #ddd;
+}
+
+.input-group {
+  margin-bottom: 10px;
+}
+
+.input-group input, .input-group select,
+.generator-form input, .generator-form select {
+  width: 100%;
+  padding: 8px;
+  margin-top: 5px;
+  font-family: 'Courier New', monospace;
+  border: 1px solid #ddd;
+}
+
+.element-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.element-item {
+  border: 1px solid #ddd;
+  padding: 5px;
+  background-color: #f9f9f9;
+}
+
+.element-item img {
+  width: 100%;
+  height: 100px;
+  object-fit: contain;
+  display: block;
+}
+
+.element-details {
+  padding: 5px;
+  font-size: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.element-details button {
+  background-color: #3D7DCA;
+  color: white;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  font-size: 10px;
+}
+
+.generator-form label {
+  display: block;
+  margin-bottom: 10px;
+}
+
+.generator-form button {
+  background-color: #FFDE00;
+  border: none;
+  padding: 8px 16px;
+  margin-top: 10px;
+  cursor: pointer;
+  font-family: 'Courier New', monospace;
+  font-weight: bold;
+  width: 100%;
+}
+
+.generator-form button:disabled {
+  background-color: #ddd;
+  cursor: not-allowed;
+}
+
+.app-footer {
+  display: flex;
+  justify-content: center;
+  margin-top: 20px;
+}
+
+.export-btn {
+  background-color: #EF5350;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  font-family: 'Courier New', monospace;
+  font-weight: bold;
+  font-size: 16px;
+  cursor: pointer;
+} 
