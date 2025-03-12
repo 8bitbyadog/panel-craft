@@ -1,60 +1,58 @@
-# Panel Craft
+# Panel Craft - Comic Creation Tool
 
-An AI-powered comic creation tool built with React and Vite. Create stunning comics by generating characters, props, and backgrounds using AI, then compose them into panels with an intuitive drag-and-drop interface.
+A modern web application for creating layered comic panels with AI-generated elements.
 
 ## Features
 
-- 🎨 AI-powered element generation (characters, props, backgrounds)
-- 🖼️ Multiple art style presets (Comic Book, Pixel Art, Realistic, Cartoon)
-- 📝 Script generation with customizable tone and panel count
-- 💭 Customizable speech bubbles
-- 🎯 Drag-and-drop panel composition
-- 📱 Modern, responsive interface
+- Create multi-panel comics with customizable layouts
+- Generate comic elements using Stable Diffusion AI
+- Layer and manipulate elements with intuitive controls:
+  - Drag and drop positioning
+  - Resize with corner/edge handles
+  - Rotate elements freely
+  - Adjust opacity and layering
+- Real-time preview of comic panels
+- Modern, responsive interface
+
+## Tech Stack
+
+- React + TypeScript
+- Vite for build tooling
+- Konva.js for canvas manipulation
+- Hugging Face API for AI image generation
+- Modern CSS with responsive design
 
 ## Getting Started
 
-### Prerequisites
-
-- Node.js (v14 or higher)
-- npm (v6 or higher)
-- Hugging Face API key
-
-### Installation
-
 1. Clone the repository:
-   ```bash
-   git clone https://github.com/8bitbyadog/panel-craft.git
-   cd panel-craft
-   ```
+```bash
+git clone https://github.com/8bitbyadog/panel-craft.git
+cd panel-craft
+```
 
 2. Install dependencies:
-   ```bash
-   npm install
-   ```
+```bash
+npm install
+```
 
 3. Create a `.env` file in the root directory and add your Hugging Face API key:
-   ```
-   VITE_HUGGINGFACE_API_KEY=your_api_key_here
-   ```
+```bash
+VITE_HUGGINGFACE_API_KEY=your_api_key_here
+```
 
 4. Start the development server:
-   ```bash
-   npm run dev
-   ```
+```bash
+npm run dev
+```
 
-5. Open your browser and navigate to `http://localhost:5173`
+5. Open [http://localhost:5173](http://localhost:5173) in your browser
 
-## Available Style Presets
+## Development
 
-- Comic Book: Traditional comic book style
-- Pixel Art: Retro 8-bit inspired art
-- Realistic: Photorealistic rendering
-- Cartoon: Modern animated style
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
+- `npm run dev` - Start development server
+- `npm run build` - Build for production
+- `npm run preview` - Preview production build locally
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details. 
+MIT License - See LICENSE file for details 
