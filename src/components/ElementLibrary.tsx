@@ -16,7 +16,10 @@ const ElementLibrary: React.FC<ElementLibraryProps> = ({ onAddElement }) => {
   const [generatedElements, setGeneratedElements] = useState<Element[]>([]);
 
   const handleGenerate = async () => {
-    if (!prompt) return;
+    if (!prompt) {
+      setError('Please enter a description of what to generate.');
+      return;
+    }
     
     setIsGenerating(true);
     setError(null);
@@ -26,6 +29,7 @@ const ElementLibrary: React.FC<ElementLibraryProps> = ({ onAddElement }) => {
       
       if (!result.success) {
         setError(result.error.detail);
+        console.error('Generation failed:', result.error);
         return;
       }
       
@@ -41,6 +45,7 @@ const ElementLibrary: React.FC<ElementLibraryProps> = ({ onAddElement }) => {
       };
       
       setGeneratedElements(prev => [...prev, newElement]);
+      setPrompt(''); // Clear the prompt after successful generation
     } catch (error) {
       console.error('Generation error:', error);
       setError('An unexpected error occurred. Please try again.');
@@ -49,12 +54,23 @@ const ElementLibrary: React.FC<ElementLibraryProps> = ({ onAddElement }) => {
     }
   };
 
+  const handlePromptChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setPrompt(e.target.value);
+    if (error) setError(null); // Clear error when user starts typing
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !isGenerating && prompt) {
+      handleGenerate();
+    }
+  };
+
   return (
     <div className="element-library">
       <div className="generation-controls">
         <select 
           value={elementType} 
-          onChange={(e) => setElementType(e.target.value as any)}
+          onChange={(e) => setElementType(e.target.value as 'character' | 'prop' | 'background')}
           className="element-type-select"
         >
           <option value="prop">Prop</option>
@@ -76,9 +92,11 @@ const ElementLibrary: React.FC<ElementLibraryProps> = ({ onAddElement }) => {
         <input
           type="text"
           value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
+          onChange={handlePromptChange}
+          onKeyPress={handleKeyPress}
           placeholder="Describe what to generate..."
           className="prompt-input"
+          disabled={isGenerating}
         />
 
         <button 
@@ -91,7 +109,8 @@ const ElementLibrary: React.FC<ElementLibraryProps> = ({ onAddElement }) => {
       </div>
 
       {error && (
-        <div className="error-message">
+        <div className="error-message" role="alert">
+          <span className="error-icon">⚠️</span>
           {error}
         </div>
       )}
@@ -102,7 +121,18 @@ const ElementLibrary: React.FC<ElementLibraryProps> = ({ onAddElement }) => {
             <img src={element.imageUrl} alt={element.name} />
             <div className="element-info">
               <span>{element.name}</span>
-              <button onClick={() => onAddElement(element)}>
+              <button 
+                onClick={() => {
+                  onAddElement(element);
+                  // Optional: Show feedback when element is added
+                  const feedback = document.createElement('div');
+                  feedback.textContent = 'Added to scene!';
+                  feedback.className = 'add-feedback';
+                  document.body.appendChild(feedback);
+                  setTimeout(() => feedback.remove(), 2000);
+                }}
+                className="add-to-scene-button"
+              >
                 Add to Scene
               </button>
             </div>

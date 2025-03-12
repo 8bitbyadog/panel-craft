@@ -4,6 +4,11 @@ import { Result, ApiError, GenerationOptions } from '../types/api';
 // Use environment variable with localStorage as fallback
 const HUGGINGFACE_API_TOKEN = import.meta.env.VITE_HUGGINGFACE_API_KEY || localStorage.getItem('huggingfaceApiKey') || '';
 
+// Validate API token
+function validateApiToken(token: string = HUGGINGFACE_API_TOKEN): boolean {
+  return Boolean(token && token.length > 32);
+}
+
 // Available models for image generation
 const IMAGE_MODELS = {
   STABLE_DIFFUSION: 'stabilityai/stable-diffusion-2',
@@ -13,10 +18,17 @@ const IMAGE_MODELS = {
 
 // Style presets for different element types
 const STYLE_PRESETS = {
-  PIXEL_ART: 'isometric pixel art, 16-bit style',
-  COMIC_BOOK: 'comic book art style, cel shaded',
-  REALISTIC: 'realistic 3D render, high detail',
-  CARTOON: 'cartoon style, vibrant colors',
+  PIXEL_ART: 'isometric pixel art, 16-bit style, clean pixel edges',
+  COMIC_BOOK: 'comic book art style, cel shaded, clean lineart',
+  REALISTIC: 'realistic 3D render, clean edges, high detail',
+  CARTOON: 'cartoon style, vibrant colors, clean outlines',
+} as const;
+
+// Default negative prompts for different element types
+const NEGATIVE_PROMPTS = {
+  character: 'blurry, low quality, text, watermark, signature, extra limbs, deformed, distorted, disfigured, bad anatomy, multiple characters, duplicate, background, environment, scene',
+  prop: 'blurry, low quality, text, watermark, signature, deformed, distorted, disfigured, bad anatomy, multiple objects, duplicate, background details, scene elements',
+  background: 'blurry, low quality, text, watermark, signature, deformed, distorted, characters, foreground objects'
 } as const;
 
 // Create API error
@@ -35,6 +47,22 @@ function createApiError(
   };
 }
 
+// Helper function to convert ArrayBuffer to base64
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  for (let i = 0; i < bytes.byteLength; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return window.btoa(binary);
+}
+
+const MAX_RETRIES = 3;
+const RETRY_DELAY = 2000; // 2 seconds
+
+// Helper function to delay execution
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 // Generate transparent background elements using selected model
 export async function generateElement(
   prompt: string, 
@@ -42,7 +70,8 @@ export async function generateElement(
   options: Partial<GenerationOptions> = {}
 ): Promise<Result<string>> {
   // Validate API token
-  if (!HUGGINGFACE_API_TOKEN) {
+  if (!validateApiToken()) {
+    console.error('No valid API token found:', HUGGINGFACE_API_TOKEN);
     return {
       success: false,
       error: createApiError(
@@ -53,115 +82,115 @@ export async function generateElement(
     };
   }
 
-  try {
-    const model = options.model || 'STABLE_DIFFUSION';
-    const style = options.style || 'COMIC_BOOK';
-    const enhancedPrompt = buildPrompt(prompt, elementType, STYLE_PRESETS[style]);
-    
-    console.log('Generating element:', { 
-      prompt: enhancedPrompt, 
-      model: IMAGE_MODELS[model],
-      options 
-    });
-    
-    const response = await axios({
-      method: 'post',
-      url: `https://api-inference.huggingface.co/models/${IMAGE_MODELS[model]}`,
-      headers: {
-        'Authorization': `Bearer ${HUGGINGFACE_API_TOKEN}`,
-        'Content-Type': 'application/json'
-      },
-      data: {
-        inputs: enhancedPrompt,
-        parameters: {
-          negative_prompt: options.negativePrompt || 'blurry, low quality, text, watermark, signature, extra limbs, deformed',
-          guidance_scale: options.guidanceScale || 7.5,
-          num_inference_steps: options.steps || 50
-        }
-      },
-      responseType: 'arraybuffer',
-      timeout: 30000 // 30 second timeout
-    });
+  let retries = 0;
+  
+  while (retries < MAX_RETRIES) {
+    try {
+      const model = options.model || 'STABLE_DIFFUSION';
+      const style = options.style || 'COMIC_BOOK';
+      
+      const enhancedPrompt = buildPrompt(prompt.trim(), elementType, STYLE_PRESETS[style]);
+      
+      console.log('API Request:', { 
+        url: `https://api-inference.huggingface.co/models/${IMAGE_MODELS[model]}`,
+        prompt: enhancedPrompt,
+        model: IMAGE_MODELS[model],
+        options,
+        tokenLength: HUGGINGFACE_API_TOKEN.length
+      });
+      
+      const response = await axios({
+        method: 'post',
+        url: `https://api-inference.huggingface.co/models/${IMAGE_MODELS[model]}`,
+        headers: {
+          'Authorization': `Bearer ${HUGGINGFACE_API_TOKEN}`,
+          'Content-Type': 'application/json'
+        },
+        data: {
+          inputs: enhancedPrompt,
+          parameters: {
+            negative_prompt: options.negativePrompt || NEGATIVE_PROMPTS[elementType],
+            guidance_scale: options.guidanceScale || 8.5,
+            num_inference_steps: options.steps || 40,
+            width: 768,
+            height: 768,
+            seed: Math.floor(Math.random() * 2147483647)
+          }
+        },
+        responseType: 'arraybuffer',
+        timeout: 30000
+      });
 
-    if (!response.data) {
+      if (!response.data) {
+        throw new Error('No data received from API');
+      }
+
+      const base64 = arrayBufferToBase64(response.data);
+      return {
+        success: true,
+        data: `data:image/jpeg;base64,${base64}`
+      };
+    } catch (error) {
+      console.error('Detailed error:', {
+        error,
+        isAxiosError: axios.isAxiosError(error),
+        response: error?.response,
+        message: error?.message,
+        stack: error?.stack
+      });
+      
+      if (axios.isAxiosError(error)) {
+        const axiosError = error as AxiosError;
+        
+        // Check if it's a GPU memory error
+        if (axiosError.response?.status === 500) {
+          try {
+            const decoder = new TextDecoder();
+            const errorMessage = decoder.decode(axiosError.response.data as ArrayBuffer);
+            const errorJson = JSON.parse(errorMessage);
+            
+            if (errorJson.warnings?.some((warning: string) => warning.includes('CUDA out of memory'))) {
+              console.log(`Attempt ${retries + 1}/${MAX_RETRIES}: GPU memory error, retrying after delay...`);
+              await delay(RETRY_DELAY);
+              retries++;
+              continue;
+            }
+          } catch (e) {
+            console.error('Failed to parse error response:', e);
+          }
+        }
+        
+        // Handle other errors
+        return {
+          success: false,
+          error: createApiError(
+            'Generation Failed',
+            'The image generation service is currently busy. Please try again in a few moments.',
+            axiosError.response?.status || 500
+          )
+        };
+      }
+      
       return {
         success: false,
         error: createApiError(
-          'No Data Received',
-          'The image generation service did not return any data.',
+          'Unknown Error',
+          'An unexpected error occurred while generating the image. Please try again.',
           500
         )
       };
     }
-
-    // Convert the image buffer to base64
-    const base64Image = Buffer.from(response.data, 'binary').toString('base64');
-    return {
-      success: true,
-      data: `data:image/jpeg;base64,${base64Image}`
-    };
-  } catch (error) {
-    console.error('Error generating element:', error);
-    
-    if (axios.isAxiosError(error)) {
-      const axiosError = error as AxiosError;
-      
-      if (axiosError.response?.status === 401) {
-        return {
-          success: false,
-          error: createApiError(
-            'Invalid API Token',
-            'The provided Hugging Face API token is invalid. Please check your settings.',
-            401
-          )
-        };
-      }
-      
-      if (axiosError.response?.status === 503) {
-        return {
-          success: false,
-          error: createApiError(
-            'Service Unavailable',
-            'The image generation service is currently busy. Please try again in a few moments.',
-            503
-          )
-        };
-      }
-      
-      if (axiosError.code === 'ECONNABORTED') {
-        return {
-          success: false,
-          error: createApiError(
-            'Request Timeout',
-            'The request timed out. The service might be experiencing high load.',
-            408
-          )
-        };
-      }
-      
-      // Handle other API errors
-      return {
-        success: false,
-        error: createApiError(
-          'Generation Failed',
-          axiosError.response?.data ? 
-            Buffer.from(axiosError.response.data).toString() : 
-            'An unexpected error occurred while generating the image.',
-          axiosError.response?.status || 500
-        )
-      };
-    }
-    
-    // Handle unknown errors
-    return {
-      success: false,
-      error: createApiError(
-        'Unknown Error',
-        'An unexpected error occurred while generating the image.',
-        500
-      )
-    };
   }
+  
+  // If we've exhausted all retries
+  return {
+    success: false,
+    error: createApiError(
+      'Service Unavailable',
+      'The image generation service is experiencing high load. Please try again later.',
+      503
+    )
+  };
 }
 
 // Script generation using GPT2
@@ -230,12 +259,12 @@ function buildPrompt(
   elementType: 'character' | 'prop' | 'background', 
   style: string
 ): string {
-  const commonPrompt = `${style}, ${basePrompt}, high quality, detailed`;
+  const commonPrompt = `${style}, ${basePrompt}, masterpiece, best quality`;
   
   const typeSpecificPrompts = {
-    character: ', single character centered, full body pose, clean edges, white background, no text',
-    prop: ', single object centered, clean edges, white background, no text',
-    background: ', detailed environment, establishing shot, no characters, no text'
+    character: ', single character centered, full body pose, clean edges, solid white background, studio lighting, professional photography, transparent background ready',
+    prop: ', single object centered, clean edges, solid white background, studio lighting, professional photography, transparent background ready',
+    background: ', detailed environment, establishing shot, no characters, full scene'
   };
   
   return `${commonPrompt}${typeSpecificPrompts[elementType]}`;

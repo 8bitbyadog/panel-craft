@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Rnd } from 'react-rnd';
+import React, { useState, useEffect, useRef } from 'react';
+import { Stage, Layer, Image, Transformer, Group } from 'react-konva';
 import { Element, Panel } from '../types/comic';
 
 interface SceneCanvasProps {
@@ -8,196 +8,204 @@ interface SceneCanvasProps {
 }
 
 const SceneCanvas: React.FC<SceneCanvasProps> = ({ panel, updatePanel }) => {
-  const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
-  
-  const handleElementSelect = (elementId: string) => {
-    setSelectedElementId(elementId);
-    
-    // Update selected state in panel elements
-    const updatedElements = panel.elements.map(element => ({
-      ...element,
-      isSelected: element.id === elementId
-    }));
-    
-    updatePanel({
-      ...panel,
-      elements: updatedElements
-    });
-  };
-  
-  const handleElementMove = (elementId: string, x: number, y: number) => {
-    const updatedElements = panel.elements.map(element => {
-      if (element.id === elementId) {
-        return {
-          ...element,
-          position: {
-            ...element.position,
-            x,
-            y
-          }
-        };
-      }
-      return element;
-    });
-    
-    updatePanel({
-      ...panel,
-      elements: updatedElements
-    });
-  };
-  
-  const handleElementResize = (elementId: string, width: number, height: number) => {
-    const updatedElements = panel.elements.map(element => {
-      if (element.id === elementId) {
-        return {
-          ...element,
-          size: {
-            width,
-            height
-          }
-        };
-      }
-      return element;
-    });
-    
-    updatePanel({
-      ...panel,
-      elements: updatedElements
-    });
-  };
-  
-  const moveElementLayer = (elementId: string, direction: 'up' | 'down') => {
-    // Get current elements sorted by z-index
-    const sortedElements = [...panel.elements].sort((a, b) => a.position.z - b.position.z);
-    
-    // Find the element index
-    const elementIndex = sortedElements.findIndex(el => el.id === elementId);
-    if (elementIndex === -1) return;
-    
-    // Can't move up if already at top, or down if already at bottom
-    if (
-      (direction === 'up' && elementIndex === sortedElements.length - 1) ||
-      (direction === 'down' && elementIndex === 0)
-    ) {
-      return;
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [images, setImages] = useState<{ [key: string]: HTMLImageElement }>({});
+  const [stageSize, setStageSize] = useState({ width: 800, height: 600 });
+  const transformerRef = useRef<any>(null);
+  const stageRef = useRef<any>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Load images
+  useEffect(() => {
+    const loadImage = (element: Element) => {
+      const img = new window.Image();
+      img.src = element.imageUrl;
+      img.onload = () => {
+        setImages(prev => ({
+          ...prev,
+          [element.id]: img
+        }));
+      };
+    };
+
+    panel.elements.forEach(loadImage);
+    if (panel.background?.imageUrl) {
+      const bgImg = new window.Image();
+      bgImg.src = panel.background.imageUrl;
+      bgImg.onload = () => {
+        setImages(prev => ({
+          ...prev,
+          background: bgImg
+        }));
+      };
     }
-    
-    // Swap z-index with adjacent element
-    const adjacentIndex = direction === 'up' ? elementIndex + 1 : elementIndex - 1;
-    const elementZ = sortedElements[elementIndex].position.z;
-    const adjacentZ = sortedElements[adjacentIndex].position.z;
-    
+  }, [panel.elements, panel.background]);
+
+  // Update stage size based on container
+  useEffect(() => {
+    const updateSize = () => {
+      if (containerRef.current) {
+        setStageSize({
+          width: containerRef.current.offsetWidth,
+          height: containerRef.current.offsetHeight
+        });
+      }
+    };
+
+    updateSize();
+    window.addEventListener('resize', updateSize);
+    return () => window.removeEventListener('resize', updateSize);
+  }, []);
+
+  // Handle selection
+  const checkDeselect = (e: any) => {
+    const clickedOnEmpty = e.target === e.target.getStage();
+    if (clickedOnEmpty) {
+      setSelectedId(null);
+    }
+  };
+
+  // Update transformer on selection change
+  useEffect(() => {
+    if (transformerRef.current) {
+      const node = stageRef.current?.findOne('#' + selectedId);
+      transformerRef.current.nodes(node ? [node] : []);
+      transformerRef.current.getLayer()?.batchDraw();
+    }
+  }, [selectedId]);
+
+  // Handle element transform
+  const handleTransform = (elementId: string, e: any) => {
+    const node = e.target;
+    const scaleX = node.scaleX();
+    const scaleY = node.scaleY();
+    const rotation = node.rotation();
+    const x = node.x();
+    const y = node.y();
+
+    const updatedElements = panel.elements.map(element => {
+      if (element.id === elementId) {
+        return {
+          ...element,
+          position: { ...element.position, x, y },
+          size: {
+            width: element.size.width * scaleX,
+            height: element.size.height * scaleY
+          },
+          rotation: rotation
+        };
+      }
+      return element;
+    });
+
+    updatePanel({
+      ...panel,
+      elements: updatedElements
+    });
+
+    // Reset scale after updating size
+    node.scaleX(1);
+    node.scaleY(1);
+  };
+
+  // Handle element drag
+  const handleDragEnd = (elementId: string, e: any) => {
     const updatedElements = panel.elements.map(element => {
       if (element.id === elementId) {
         return {
           ...element,
           position: {
             ...element.position,
-            z: adjacentZ
-          }
-        };
-      } else if (element.id === sortedElements[adjacentIndex].id) {
-        return {
-          ...element,
-          position: {
-            ...element.position,
-            z: elementZ
+            x: e.target.x(),
+            y: e.target.y()
           }
         };
       }
       return element;
     });
-    
+
     updatePanel({
       ...panel,
       elements: updatedElements
     });
   };
-  
-  const removeElement = (elementId: string) => {
-    const updatedElements = panel.elements.filter(element => element.id !== elementId);
-    
-    updatePanel({
-      ...panel,
-      elements: updatedElements
-    });
-  };
-  
-  // Sort elements by z-index for proper layering
-  const sortedElements = [...panel.elements].sort((a, b) => a.position.z - b.position.z);
-  
+
   return (
-    <div className="scene-canvas">
-      <div className="canvas-controls">
-        <button 
-          onClick={() => selectedElementId && moveElementLayer(selectedElementId, 'up')}
-          disabled={!selectedElementId}
-        >
-          Move Up
-        </button>
-        <button 
-          onClick={() => selectedElementId && moveElementLayer(selectedElementId, 'down')}
-          disabled={!selectedElementId}
-        >
-          Move Down
-        </button>
-        <button 
-          onClick={() => selectedElementId && removeElement(selectedElementId)}
-          disabled={!selectedElementId}
-        >
-          Remove
-        </button>
-      </div>
-      
-      <div className="canvas-area">
-        {/* Background element (if exists) rendered first */}
-        {panel.background && (
-          <div 
-            className="background-element"
-            style={{
-              backgroundImage: `url(${panel.background.imageUrl})`,
-              backgroundSize: 'cover',
-              width: '100%',
-              height: '100%',
-              position: 'absolute',
-              top: 0,
-              left: 0
-            }}
-          />
-        )}
-        
-        {/* Render elements sorted by z-index */}
-        {sortedElements.map(element => (
-          <Rnd
-            key={element.id}
-            position={{ x: element.position.x, y: element.position.y }}
-            size={{ width: element.size.width, height: element.size.height }}
-            onDragStop={(e, d) => handleElementMove(element.id, d.x, d.y)}
-            onResizeStop={(e, direction, ref, delta, position) => {
-              handleElementResize(
-                element.id, 
-                ref.offsetWidth, 
-                ref.offsetHeight
-              );
-              handleElementMove(element.id, position.x, position.y);
-            }}
-            className={`draggable-element ${element.isSelected ? 'selected' : ''}`}
-            onClick={() => handleElementSelect(element.id)}
-          >
-            <div 
-              className="element-content"
-              style={{
-                backgroundImage: `url(${element.imageUrl})`,
-                backgroundSize: 'contain',
-                backgroundPosition: 'center',
-                backgroundRepeat: 'no-repeat',
-                width: '100%',
-                height: '100%'
-              }}
+    <div ref={containerRef} className="scene-canvas">
+      <Stage
+        ref={stageRef}
+        width={stageSize.width}
+        height={stageSize.height}
+        onMouseDown={checkDeselect}
+        onTouchStart={checkDeselect}
+      >
+        <Layer>
+          {/* Background */}
+          {panel.background && images.background && (
+            <Image
+              image={images.background}
+              width={stageSize.width}
+              height={stageSize.height}
+              opacity={0.5}
             />
-          </Rnd>
-        ))}
-      </div>
+          )}
+
+          {/* Elements */}
+          {panel.elements
+            .sort((a, b) => a.position.z - b.position.z)
+            .map(element => {
+              if (!images[element.id]) return null;
+
+              return (
+                <Group
+                  key={element.id}
+                  id={element.id}
+                  x={element.position.x}
+                  y={element.position.y}
+                  width={element.size.width}
+                  height={element.size.height}
+                  rotation={element.rotation || 0}
+                  draggable
+                  onClick={() => setSelectedId(element.id)}
+                  onTap={() => setSelectedId(element.id)}
+                  onDragEnd={(e) => handleDragEnd(element.id, e)}
+                  onTransformEnd={(e) => handleTransform(element.id, e)}
+                >
+                  <Image
+                    image={images[element.id]}
+                    width={element.size.width}
+                    height={element.size.height}
+                    opacity={element.opacity || 1}
+                  />
+                </Group>
+              );
+            })}
+
+          {/* Transformer */}
+          <Transformer
+            ref={transformerRef}
+            boundBoxFunc={(oldBox, newBox) => {
+              // Limit resize
+              const minWidth = 5;
+              const minHeight = 5;
+              const maxWidth = stageSize.width;
+              const maxHeight = stageSize.height;
+
+              if (
+                newBox.width < minWidth ||
+                newBox.height < minHeight ||
+                newBox.width > maxWidth ||
+                newBox.height > maxHeight
+              ) {
+                return oldBox;
+              }
+              return newBox;
+            }}
+            rotationSnaps={[0, 45, 90, 135, 180, 225, 270, 315]}
+            rotationSnapTolerance={5}
+          />
+        </Layer>
+      </Stage>
     </div>
   );
 };

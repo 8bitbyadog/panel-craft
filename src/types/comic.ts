@@ -12,13 +12,14 @@ export interface Element {
     width: number;
     height: number;
   };
-  rotation: number;
-  isSelected: boolean;
+  rotation?: number;
+  opacity?: number;
+  isSelected?: boolean;
 }
 
 export interface Panel {
   id: string;
-  description: string;
+  title: string;
   elements: Element[];
   background?: Element;
 }
